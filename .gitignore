@@ -1,0 +1,34 @@
+.env
+.env.*
+!.env.example
+.venv/
+**/.venv/
+__pycache__/
+*.pyc
+data/
+*.engine
+*.pt
+*.onnx
+*.etlt
+*.so
+
+.venv-dashboard/
+
+# Local build and runtime output
+/build/
+/runs/
+*.log
+*.tmp
+*.swp
+.pytest_cache/
+
+# Calibration recordings and generated results; keep project definitions,
+# landmarks, layouts, and reproducible scripts under calibration/.
+/calibration/**/inputs/videos/
+/calibration/**/amc_new_capture/
+/calibration/**/amc_retry_inputs/
+/calibration/**/amc-projects/
+/calibration/**/output/
+/calibration/**/outputs/
+/calibration/**/capture.log
+/calibration/**/state.json

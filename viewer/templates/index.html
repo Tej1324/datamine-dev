@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Ground-floor GPU detector</title>
+  <style>
+    :root { color-scheme: dark; font: 16px system-ui; background: #0d131c; color: #edf4ff }
+    body { margin: 0 }
+    main { max-width: 1280px; margin: auto; padding: 24px }
+    h1 { margin: 0 0 5px }
+    .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 16px 0 12px }
+    button { border: 1px solid #4d6b8e; border-radius: 6px; background: #172235; color: #edf4ff; padding: 8px 12px; cursor: pointer }
+    button.active { background: #1f77c8; border-color: #5eaaf1 }
+    button:disabled { opacity: .45; cursor: not-allowed }
+    .toolbar-label { color: #9eb1c9; font-size: 13px; margin-right: 2px }
+    .stage { background: #05080d; border: 1px solid #2d405a; border-radius: 8px; overflow: hidden; position: relative }
+    #dashboard { width: 100%; line-height: 0; background: #000 }
+    #dashboard-grid { display: grid; gap: 4px; background: #000 }
+    .camera-tile { min-width: 0; position: relative; background: #000; overflow: hidden }
+    .camera-tile img { display: block; width: 100%; height: auto; }
+    .camera-tile h2 { position: absolute; z-index: 1; left: 10px; top: 8px; margin: 0; padding: 4px 8px; background: rgba(0,0,0,.65); font-size: 16px; line-height: 1.2 }
+    .stats { margin-top: 12px; padding: 12px; background: #172235; border-radius: 8px }
+    .row { display: grid; grid-template-columns: 1.5fr repeat(3,1fr); gap: 8px; padding: 7px 0; border-bottom: 1px solid #2d3c52 }
+    .head { font-size: 12px; color: #9eb1c9; text-transform: uppercase }
+    #status { color: #9eb1c9 }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Ground-floor GPU detector</h1>
+    <p>Six NVIDIA DeepStream cameras · native 1280×720 camera streams · per-camera GPU OSD · NvDCF/Re-ID local tracking</p>
+    <div class="toolbar">
+      <button id="fullscreen">FULLSCREEN</button>
+    </div>
+    <section class="stage" id="dashboard">
+      <div id="dashboard-grid" aria-label="Live camera dashboard"></div>
+    </section>
+    <section class="stats">
+      <div class="row head"><span>Camera</span><span>Detector FPS</span><span>Persons</span><span>Frame age</span></div>
+      <div id="rows"></div>
+      <p id="system">System: CPU — · GPU — · VRAM — · NVDEC — · NVENC —</p>
+      <p id="status">Connecting to GPU JPEG stream…</p>
+    </section>
+  </main>
+  <script>
+    const cameras = [
+      { id: 'ground_01', label: 'CH7' },
+      { id: 'ground_02', label: 'CH16' },
+      { id: 'ground_03', label: 'CH10' },
+      { id: 'ground_04', label: 'CH18' },
+      { id: 'ground_05', label: 'CH20' },
+      { id: 'ground_06', label: 'CH11' }
+    ];
+    const grid = document.querySelector('#dashboard-grid');
+    let selectedTile = cameras[0].id;
+    let renderedKey = '';
+
+    document.querySelector('#rows').innerHTML = cameras.map(camera =>
+      '<div class="row"><span>' + camera.id + ' (' + camera.label + ')</span><span id="' + camera.id + '-fps">—</span><span id="' + camera.id + '-count">—</span><span id="' + camera.id + '-age">—</span></div>'
+    ).join('');
+
+    function renderDashboard() {
+      const ids = cameras.map(camera => camera.id);
+      const key = ids.join(',');
+      if (key === renderedKey) return;
+      renderedKey = key;
+      grid.style.gridTemplateColumns = 'repeat(3, minmax(0, 1fr))';
+      grid.replaceChildren(...ids.map(id => {
+        const camera = cameras.find(item => item.id === id);
+        const tile = document.createElement('div');
+        tile.className = 'camera-tile' + (id === selectedTile ? ' selected' : '');
+        tile.dataset.camera = id;
+        tile.innerHTML = '<h2>' + camera.label + '</h2><img alt="' + camera.label + ' live stream">';
+        tile.querySelector('img').src = '/stream/' + id + '.jpg?live=1';
+        tile.addEventListener('click', () => { selectedTile = id; });
+        return tile;
+      }));
+    }
+
+    document.querySelector('#fullscreen').addEventListener('click', async () => {
+      const tile = document.querySelector('.camera-tile[data-camera="' + selectedTile + '"]') || document.querySelector('.camera-tile');
+      if (!tile) return;
+      if (!document.fullscreenElement) await tile.requestFullscreen();
+      else await document.exitFullscreen();
+    });
+
+    async function refresh() {
+      try {
+        const response = await fetch('/api/detection/live', { cache: 'no-store' });
+        const data = await response.json();
+        cameras.forEach(({ id }) => {
+          const camera = data.cameras?.[id] || {};
+          document.querySelector('#' + id + '-fps').textContent = camera.detector_fps ?? '—';
+          document.querySelector('#' + id + '-count').textContent = camera.raw_person_detections ?? '—';
+          document.querySelector('#' + id + '-age').textContent = camera.frame_age_seconds == null ? '—' : camera.frame_age_seconds + 's';
+        });
+      } catch (error) {}
+      try {
+        const response = await fetch('/api/system/metrics', { cache: 'no-store' });
+        const metrics = await response.json();
+        document.querySelector('#system').textContent = 'CPU ' + (metrics.cpu_percent ?? '—') + '% · GPU ' + (metrics.gpu_percent ?? '—') + '% · VRAM ' + (metrics.vram_used_mib ?? '—') + '/' + (metrics.vram_total_mib ?? '—') + ' MiB · NVDEC ' + (metrics.nvdec_percent ?? '—') + '% · NVENC ' + (metrics.nvenc_percent ?? '—') + '%';
+      } catch (error) {}
+      setTimeout(refresh, 1000);
+    }
+
+    renderDashboard();
+    refresh();
+  </script>
+</body>
+</html>

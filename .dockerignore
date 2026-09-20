@@ -1,0 +1,8 @@
+**/.venv
+.venv-dashboard
+.env
+.env.*
+data
+models
+.git
+__pycache__

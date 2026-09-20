@@ -1,0 +1,116 @@
+schema: ground-floor-planar-landmarks-v1
+project: ground_floor_ch18_ch20
+camera_order:
+- ch18
+- ch20
+coordinate_space: production_1280x720
+source_resolution:
+- 1280
+- 720
+status: manual_points_saved_pending_validation
+overlap_observation:
+  status: operator_selected
+  region: operator-defined CH18/CH20 common floor region
+  evidence: manual paired clicks on permanent floor-plane/floor-contact features
+world_coordinate_system:
+  name: not_provided
+  units: unknown
+  metric_scale_verified: false
+  note: World/floor coordinates were intentionally not fabricated by the picker.
+landmarks:
+- id: p02
+  type: manual_floor_plane_point
+  description: operator-selected permanent floor-plane or floor-contact point
+  ch18_pixel:
+  - 306.0
+  - 205.0
+  ch20_pixel:
+  - 298.0
+  - 127.0
+  floor_xy_arbitrary: null
+  floor_plane_asserted: true
+  verified: false
+- id: p03
+  type: manual_floor_plane_point
+  description: operator-selected permanent floor-plane or floor-contact point
+  ch18_pixel:
+  - 274.0
+  - 165.0
+  ch20_pixel:
+  - 262.0
+  - 101.0
+  floor_xy_arbitrary: null
+  floor_plane_asserted: true
+  verified: false
+- id: p04
+  type: manual_floor_plane_point
+  description: operator-selected permanent floor-plane or floor-contact point
+  ch18_pixel:
+  - 1016.0
+  - 133.0
+  ch20_pixel:
+  - 564.0
+  - 13.0
+  floor_xy_arbitrary: null
+  floor_plane_asserted: true
+  verified: false
+- id: p07
+  type: manual_floor_plane_point
+  description: operator-selected permanent floor-plane or floor-contact point
+  ch18_pixel:
+  - 234.0
+  - 193.0
+  ch20_pixel:
+  - 244.0
+  - 129.0
+  floor_xy_arbitrary: null
+  floor_plane_asserted: true
+  verified: false
+- id: p08
+  type: manual_floor_plane_point
+  description: operator-selected permanent floor-plane or floor-contact point
+  ch18_pixel:
+  - 310.0
+  - 119.0
+  ch20_pixel:
+  - 260.0
+  - 61.0
+  floor_xy_arbitrary: null
+  floor_plane_asserted: true
+  verified: false
+- id: p01
+  type: manual_floor_plane_point
+  description: operator-selected permanent floor-plane or floor-contact point
+  ch18_pixel:
+  - 246.0
+  - 221.0
+  ch20_pixel:
+  - 254.0
+  - 155.0
+  floor_xy_arbitrary: null
+  floor_plane_asserted: true
+  verified: false
+- id: p05
+  type: manual_floor_plane_point
+  description: operator-selected permanent floor-plane or floor-contact point
+  ch18_pixel:
+  - 612.0
+  - 281.0
+  ch20_pixel:
+  - 634.0
+  - 115.0
+  floor_xy_arbitrary: null
+  floor_plane_asserted: true
+  verified: false
+- id: p06
+  type: manual_floor_plane_point
+  description: operator-selected permanent floor-plane or floor-contact point
+  ch18_pixel:
+  - 352.0
+  - 127.0
+  ch20_pixel:
+  - 360.0
+  - 57.0
+  floor_xy_arbitrary: null
+  floor_plane_asserted: true
+  verified: false

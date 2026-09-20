@@ -1,0 +1,9 @@
+enabled: true
+# 90% of the mean staff score from the 20 manually labeled crops.
+staff_color_threshold: 0.615878
+profile_path: data/staff_filter/profile.yml
+upper_body:
+  x_min: 0.15
+  x_max: 0.85
+  y_min: 0.10
+  y_max: 0.65

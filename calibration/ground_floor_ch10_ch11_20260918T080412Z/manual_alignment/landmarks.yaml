@@ -1,0 +1,107 @@
+schema: ground-floor-amc-manual-alignment-v1
+project: ground_floor_ch10_ch11_20260918T080412Z
+camera_order:
+- ch10
+- ch11
+coordinate_space: native_calibration_video_1920x1080
+source_resolution:
+- 1920
+- 1080
+status: manual_points_saved_pending_validation
+landmarks:
+- id: p01
+  type: manual_floor_plane_point
+  description: operator-selected permanent floor-plane or floor-contact point
+  ch10_pixel:
+  - 912.0
+  - 245.0
+  ch11_pixel:
+  - 506.0
+  - 231.0
+  layout_pixel: null
+  floor_plane_asserted: true
+  verified: false
+- id: p02
+  type: manual_floor_plane_point
+  description: operator-selected permanent floor-plane or floor-contact point
+  ch10_pixel:
+  - 648.0
+  - 147.0
+  ch11_pixel:
+  - 582.0
+  - 101.0
+  layout_pixel: null
+  floor_plane_asserted: true
+  verified: false
+- id: p03
+  type: manual_floor_plane_point
+  description: operator-selected permanent floor-plane or floor-contact point
+  ch10_pixel:
+  - 206.0
+  - 181.0
+  ch11_pixel:
+  - 152.0
+  - 141.0
+  layout_pixel: null
+  floor_plane_asserted: true
+  verified: false
+- id: p04
+  type: manual_floor_plane_point
+  description: operator-selected permanent floor-plane or floor-contact point
+  ch10_pixel:
+  - 1590.0
+  - 439.0
+  ch11_pixel:
+  - 162.0
+  - 615.0
+  layout_pixel: null
+  floor_plane_asserted: true
+  verified: false
+- id: p05
+  type: manual_floor_plane_point
+  description: operator-selected permanent floor-plane or floor-contact point
+  ch10_pixel:
+  - 1428.0
+  - 241.0
+  ch11_pixel:
+  - 274.0
+  - 311.0
+  layout_pixel: null
+  floor_plane_asserted: true
+  verified: false
+- id: p06
+  type: manual_floor_plane_point
+  description: operator-selected permanent floor-plane or floor-contact point
+  ch10_pixel:
+  - 1292.0
+  - 255.0
+  ch11_pixel:
+  - 1156.0
+  - 237.0
+  layout_pixel: null
+  floor_plane_asserted: true
+  verified: false
+- id: p07
+  type: manual_floor_plane_point
+  description: operator-selected permanent floor-plane or floor-contact point
+  ch10_pixel:
+  - 454.0
+  - 205.0
+  ch11_pixel:
+  - 368.0
+  - 157.0
+  layout_pixel: null
+  floor_plane_asserted: true
+  verified: false
+- id: p08
+  type: manual_floor_plane_point
+  description: operator-selected permanent floor-plane or floor-contact point
+  ch10_pixel:
+  - 1188.0
+  - 245.0
+  ch11_pixel:
+  - 786.0
+  - 235.0
+  layout_pixel: null
+  floor_plane_asserted: true
+  verified: false

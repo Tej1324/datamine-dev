@@ -1,0 +1,7 @@
+FROM nvcr.io/nvidia/deepstream:9.1-triton-multiarch
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3-gi gir1.2-gst-plugins-base-1.0 gir1.2-gst-plugins-bad-1.0 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN python3 -m pip install --no-cache-dir PyYAML

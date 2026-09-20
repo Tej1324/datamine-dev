@@ -1,0 +1,32 @@
+# Authoritative ground-floor production sources. Transport and credentials come from .env.
+cameras:
+  - id: ground_01
+    name: entrance
+    nvr: 225
+    channel: 7
+    subtype: 1
+  - id: ground_02
+    name: ground_02
+    nvr: 225
+    channel: 16
+    subtype: 1
+  - id: ground_03
+    name: ground_03
+    nvr: 225
+    channel: 10
+    subtype: 1
+  - id: ground_04
+    name: ground_04
+    nvr: 225
+    channel: 18
+    subtype: 1
+  - id: ground_05
+    name: ground_05
+    nvr: 225
+    channel: 20
+    subtype: 1
+  - id: ground_06
+    name: ground_06
+    nvr: 225
+    channel: 11
+    subtype: 1

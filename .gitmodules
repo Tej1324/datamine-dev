@@ -1,0 +1,4 @@
+[submodule "models/yolo26s/DeepStream-Yolo"]
+	path = models/yolo26s/DeepStream-Yolo
+	url = https://github.com/marcoslucianops/DeepStream-Yolo.git
+	ignore = dirty

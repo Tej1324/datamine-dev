@@ -1,0 +1,46 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>CH18 / CH20 floor landmarks</title>
+<style>
+body{font:14px system-ui;background:#10151d;color:#e8eef7;margin:18px}
+.row{display:flex;gap:16px;flex-wrap:wrap}.pane{background:#182231;padding:10px;border-radius:8px;margin-top:12px}
+canvas{width:640px;max-width:calc(100vw - 60px);height:auto;background:#000;cursor:crosshair;display:block}
+button{padding:9px 13px;margin:12px 6px 0 0;border:0;border-radius:5px;background:#2e75c9;color:white;cursor:pointer}
+button:disabled{opacity:.45}#status{padding:10px;background:#182231;border-radius:6px;white-space:pre-wrap;margin-top:12px}
+table{border-collapse:collapse}td,th{padding:4px 8px;border-bottom:1px solid #324256;text-align:left;font-size:12px}
+.layout{max-width:900px;max-height:500px;object-fit:contain}
+</style>
+<h1>CH18 ↔ CH20 manual floor-plane landmarks</h1>
+<p>Click CH18 first, then the exact same permanent floor-plane or floor-contact point in CH20. Do not click people or movable merchandise.</p>
+<button id="undo">Undo last pair</button><button id="repick">Re-pick last pair</button><button id="clear">Clear all</button>
+<button id="save">Save landmarks.yaml</button><button id="validate" disabled>Run RANSAC validation</button>
+<div id="status">Loading…</div>
+<div class="row">
+  <div class="pane"><b>CH18 — click first</b><canvas id="left" width="1280" height="720"></canvas></div>
+  <div class="pane"><b>CH20 — click second</b><canvas id="right" width="1280" height="720"></canvas></div>
+</div>
+<div class="pane"><b>Reference floor layout</b><br><img class="layout" src="/layout/layout.png"></div>
+<div class="pane"><table><thead><tr><th>ID</th><th>CH18 x,y</th><th>CH20 x,y</th><th>Actions</th></tr></thead><tbody id="list"></tbody></table></div>
+<script>
+const L=document.getElementById('left'),R=document.getElementById('right'),lc=L.getContext('2d'),rc=R.getContext('2d');
+const points=[];let pending=null,editingIndex=null,imgs={};
+function image(name,ctx,canvas){let i=new Image();i.onload=()=>{imgs[name]=i;draw()};i.src='/frames/'+name}
+function xy(e,c){let r=c.getBoundingClientRect();return [Math.max(0,Math.min(1279,(e.clientX-r.left)*1280/r.width)),Math.max(0,Math.min(719,(e.clientY-r.top)*720/r.height))]}
+function mark(ctx,ps){ctx.font='bold 18px system-ui';ps.forEach(p=>{ctx.beginPath();ctx.arc(p.xy[0],p.xy[1],9,0,Math.PI*2);ctx.strokeStyle='#ff3030';ctx.lineWidth=3;ctx.stroke();ctx.fillStyle='#fff';ctx.fillText(p.label,p.xy[0]+12,p.xy[1]-10)})}
+function draw(){const left=points.map(p=>({xy:p.ch18_pixel,label:p.id}));const right=points.map(p=>({xy:p.ch20_pixel,label:p.id}));if(pending){const label=editingIndex===null?nextId():points[editingIndex].id;left.push({xy:pending,label})}if(imgs.l){lc.drawImage(imgs.l,0,0,1280,720);mark(lc,left)}if(imgs.r){rc.drawImage(imgs.r,0,0,1280,720);mark(rc,right)}}
+function status(t){document.getElementById('status').textContent=t;document.getElementById('validate').disabled=points.length<8||!!pending}
+function nextId(){const used=new Set(points.map(p=>p.id));let n=1;while(used.has('p'+String(n).padStart(2,'0')))n++;return 'p'+String(n).padStart(2,'0')}
+function list(){document.getElementById('list').innerHTML=points.map((p,n)=>`<tr><td>${p.id}</td><td>${p.ch18_pixel.map(v=>v.toFixed(1)).join(', ')}</td><td>${p.ch20_pixel.map(v=>v.toFixed(1)).join(', ')}</td><td><button onclick="editPoint(${n})">Re-pick</button><button onclick="deletePoint(${n})">Delete</button></td></tr>`).join('')}
+function editPoint(n){if(!points[n])return;editingIndex=n;pending=null;draw();status(`Re-pick ${points[n].id}: click its point in CH18, then the same point in CH20.`)}
+function deletePoint(n){if(!points[n])return;points.splice(n,1);if(editingIndex===n){editingIndex=null;pending=null}else if(editingIndex!==null&&editingIndex>n){editingIndex--}draw();list();status(`Deleted point. ${points.length} pairs remain.`)}
+L.onclick=e=>{if(!pending){pending=xy(e,L);draw();status(editingIndex===null?`Pair ${points.length+1}: click the same point in CH20.`:`Re-pick ${points[editingIndex].id}: click the same point in CH20.`)}};
+R.onclick=e=>{if(!pending){status('Click CH18 first.');return}const replacement={id:editingIndex===null?nextId():points[editingIndex].id,ch18_pixel:pending,ch20_pixel:xy(e,R)};if(editingIndex===null)points.push(replacement);else points[editingIndex]=replacement;pending=null;editingIndex=null;draw();list();status(points.length<8?`Pair saved. Need ${8-points.length} more.`:`${points.length} pairs ready. Save, then validate.`)};
+document.getElementById('undo').onclick=()=>{pending=null;editingIndex=null;if(points.length)points.pop();draw();list();status(`Removed last pair. Click CH18 for pair ${points.length+1}.`)};
+document.getElementById('repick').onclick=()=>{if(points.length)editPoint(points.length-1);else status('No pair to re-pick.')};
+document.getElementById('clear').onclick=()=>{points.splice(0);pending=null;editingIndex=null;draw();list();status('Cleared. Click CH18 for pair 1.')};
+async function post(path,body){let r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});return r.json()}
+document.getElementById('save').onclick=async()=>{if(!points.length||pending){status('Complete a pair before saving.');return}let x=await post('/save',{points});status(x.message||'Saved.')};
+document.getElementById('validate').onclick=async()=>{status('Running OpenCV RANSAC validation…');let x=await post('/validate');status(x.message||'Validation finished.')};
+let il=new Image();il.onload=()=>{imgs.l=il;draw()};il.src='/frames/ch18_1280x720.jpg';let ir=new Image();ir.onload=()=>{imgs.r=ir;draw()};ir.src='/frames/ch20_1280x720.jpg';
+fetch('/state').then(r=>r.json()).then(x=>{(x.points||[]).forEach(p=>points.push(p));list();draw();status(points.length?`${points.length} saved pairs loaded. Add, undo, or re-pick as needed.`:'Ready. Click CH18 for pair 1.')}).catch(()=>status('Ready. Click CH18 for pair 1.'));
+</script>
