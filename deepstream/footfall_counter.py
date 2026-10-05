@@ -30,7 +30,15 @@ class FootfallCounter(BatchMetadataOperator):
         self.height = int(os.getenv("FOOTFALL_HEIGHT", "720"))
         self.track_ttl = float(os.getenv("FOOTFALL_TRACK_TTL_SECONDS", "120"))
         self.tracks = {}
-        self.state = {"entries": 0, "exits": 0, "footfall": 0, "updated_at": 0}
+        self.state = {
+            "entries": 0,
+            "exits": 0,
+            "footfall": 0,
+            "fps": 0.0,
+            "fps_by_source": {},
+            "updated_at": 0,
+        }
+        self.fps_samples = {}
         self.lines = None
         self.last_reload = 0.0
         self.last_write = 0.0
@@ -50,6 +58,8 @@ class FootfallCounter(BatchMetadataOperator):
             value = json.loads(self.state_path.read_text())
             for key in ("entries", "exits", "footfall"):
                 self.state[key] = int(value.get(key, 0))
+            self.state["fps"] = float(value.get("fps", self.state["fps"]))
+            self.state["fps_by_source"] = value.get("fps_by_source", self.state["fps_by_source"])
         except (OSError, ValueError, TypeError):
             pass
 
@@ -64,9 +74,22 @@ class FootfallCounter(BatchMetadataOperator):
         temporary.replace(self.state_path)
         self.last_write = now
 
+    def _observe_fps(self, frames, now):
+        for frame in frames:
+            source_id = str(int(frame.source_id))
+            sample = self.fps_samples.setdefault(source_id, {"started": now, "frames": 0})
+            sample["frames"] += 1
+            elapsed = now - sample["started"]
+            if elapsed >= 1.0:
+                self.state["fps_by_source"][source_id] = round(sample["frames"] / elapsed, 2)
+                sample["started"], sample["frames"] = now, 0
+        values = list(self.state["fps_by_source"].values())
+        self.state["fps"] = round(sum(values), 2) if values else 0.0
+
     def handle_metadata(self, batch_meta):
         self._reload()
         now = time.time()
+        self._observe_fps(batch_meta.frame_items, now)
         if not self.lines:
             self._write(now)
             return
