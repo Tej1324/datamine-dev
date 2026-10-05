@@ -1,0 +1,9 @@
+{
+  "data-root": "/var/lib/docker-persistent",
+  "runtimes": {
+    "nvidia": {
+      "args": [],
+      "path": "nvidia-container-runtime"
+    }
+  }
+}

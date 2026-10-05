@@ -1,0 +1,4 @@
+second,reference_id,left_id,right_id,same
+0,person_001,G67,G4,yes
+1,person_001,G67,G4,yes
+2,person_002,G12,G23,no

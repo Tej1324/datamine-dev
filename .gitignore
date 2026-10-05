@@ -11,6 +11,9 @@ data/
 *.onnx
 *.etlt
 *.so
+*.pth
+*.tlt
+*.zip
 
 .venv-dashboard/
 
@@ -32,3 +35,6 @@ data/
 /calibration/**/outputs/
 /calibration/**/capture.log
 /calibration/**/state.json
+vendor/deepstream-reference/
+vendor/deepstream-tracker-3d-multi-view
+calibration/auto-magic-calib/tools/auto-magic-calib/models/vggt/*.pt

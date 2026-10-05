@@ -14,11 +14,16 @@
     button.active { background: #1f77c8; border-color: #5eaaf1 }
     button:disabled { opacity: .45; cursor: not-allowed }
     .toolbar-label { color: #9eb1c9; font-size: 13px; margin-right: 2px }
-    .stage { background: #05080d; border: 1px solid #2d405a; border-radius: 8px; overflow: hidden; position: relative }
-    #dashboard { width: 100%; line-height: 0; background: #000 }
-    #dashboard-grid { display: grid; gap: 4px; background: #000 }
+    .stage { aspect-ratio: 1280 / 736; background: #000; border: 1px solid #2d405a; border-radius: 8px; overflow: hidden; position: relative }
+    #dashboard { width: 100%; line-height: 0 }
+    #dashboard-grid { display: grid; width: 100%; height: 100%; gap: 0; background: #000 }
     .camera-tile { min-width: 0; position: relative; background: #000; overflow: hidden }
-    .camera-tile img { display: block; width: 100%; height: auto; }
+    .camera-tile img { display: block; width: 100%; height: 100%; object-fit: contain; background: #000; }
+    #reid-overlay { position: absolute; inset: 0; pointer-events: none; overflow: hidden }
+    .reid-label { position: absolute; border: 2px solid #00e5ff; color: #00e5ff; font: 700 13px system-ui; line-height: 1; }
+    .reid-label.pending { border-color: #fbbf24; color: #fbbf24; }
+    .reid-label.unknown { border-color: #94a3b8; color: #e2e8f0; }
+    .reid-label span { position: absolute; top: -20px; left: -2px; padding: 3px 5px; background: rgba(0,25,35,.88); white-space: nowrap }
     .camera-tile h2 { position: absolute; z-index: 1; left: 10px; top: 8px; margin: 0; padding: 4px 8px; background: rgba(0,0,0,.65); font-size: 16px; line-height: 1.2 }
     .stats { margin-top: 12px; padding: 12px; background: #172235; border-radius: 8px }
     .row { display: grid; grid-template-columns: 1.5fr repeat(3,1fr); gap: 8px; padding: 7px 0; border-bottom: 1px solid #2d3c52 }
@@ -40,7 +45,7 @@
       <div class="row head"><span>Camera</span><span>Detector FPS</span><span>Persons</span><span>Frame age</span></div>
       <div id="rows"></div>
       <p id="system">System: CPU — · GPU — · VRAM — · NVDEC — · NVENC —</p>
-      <p id="status">Connecting to GPU JPEG stream…</p>
+      <p id="status">Connecting to NVIDIA GPU JPEG overview…</p>
     </section>
   </main>
   <script>
@@ -61,21 +66,15 @@
     ).join('');
 
     function renderDashboard() {
-      const ids = cameras.map(camera => camera.id);
-      const key = ids.join(',');
-      if (key === renderedKey) return;
-      renderedKey = key;
-      grid.style.gridTemplateColumns = 'repeat(3, minmax(0, 1fr))';
-      grid.replaceChildren(...ids.map(id => {
-        const camera = cameras.find(item => item.id === id);
-        const tile = document.createElement('div');
-        tile.className = 'camera-tile' + (id === selectedTile ? ' selected' : '');
-        tile.dataset.camera = id;
-        tile.innerHTML = '<h2>' + camera.label + '</h2><img alt="' + camera.label + ' live stream">';
-        tile.querySelector('img').src = '/stream/' + id + '.jpg?live=1';
-        tile.addEventListener('click', () => { selectedTile = id; });
-        return tile;
-      }));
+      if (renderedKey) return;
+      renderedKey = 'overview';
+      grid.style.gridTemplateColumns = '1fr';
+      const tile = document.createElement('div');
+      tile.className = 'camera-tile';
+      tile.dataset.camera = 'overview';
+      tile.innerHTML = '<img id="overview-image" alt="Six-camera DeepStream live overview"><div id="reid-overlay" aria-label="Experimental SOLIDER Re-ID labels"></div>';
+      grid.replaceChildren(tile);
+      document.querySelector('#status').textContent = 'Live NVIDIA GPU JPEG overview connecting';
     }
 
     document.querySelector('#fullscreen').addEventListener('click', async () => {
@@ -87,16 +86,6 @@
 
     async function refresh() {
       try {
-        const response = await fetch('/api/detection/live', { cache: 'no-store' });
-        const data = await response.json();
-        cameras.forEach(({ id }) => {
-          const camera = data.cameras?.[id] || {};
-          document.querySelector('#' + id + '-fps').textContent = camera.detector_fps ?? '—';
-          document.querySelector('#' + id + '-count').textContent = camera.raw_person_detections ?? '—';
-          document.querySelector('#' + id + '-age').textContent = camera.frame_age_seconds == null ? '—' : camera.frame_age_seconds + 's';
-        });
-      } catch (error) {}
-      try {
         const response = await fetch('/api/system/metrics', { cache: 'no-store' });
         const metrics = await response.json();
         document.querySelector('#system').textContent = 'CPU ' + (metrics.cpu_percent ?? '—') + '% · GPU ' + (metrics.gpu_percent ?? '—') + '% · VRAM ' + (metrics.vram_used_mib ?? '—') + '/' + (metrics.vram_total_mib ?? '—') + ' MiB · NVDEC ' + (metrics.nvdec_percent ?? '—') + '% · NVENC ' + (metrics.nvenc_percent ?? '—') + '%';
@@ -104,8 +93,85 @@
       setTimeout(refresh, 1000);
     }
 
+    let previousOverviewUrl = null;
+    async function refreshOverview() {
+      try {
+        // Fetch one snapshot at a time. If the browser or SSH tunnel is slow,
+        // the next request still receives the newest frame rather than a
+        // backlog of old MJPEG frames.
+        const response = await fetch('/api/overview/frame?ts=' + Date.now(), { cache: 'no-store' });
+        if (!response.ok) throw new Error('overview unavailable');
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const image = document.querySelector('#overview-image');
+        if (image) image.src = url;
+        if (previousOverviewUrl) URL.revokeObjectURL(previousOverviewUrl);
+        previousOverviewUrl = url;
+        document.querySelector('#status').textContent = 'Live NVIDIA GPU JPEG overview connected';
+      } catch (error) {
+        document.querySelector('#status').textContent = 'Waiting for live overview…';
+      }
+      setTimeout(refreshOverview, 100);
+    }
+
+    async function refreshExperimentalReid() {
+      try {
+        const response = await fetch('/api/reid-experiment/latest?ts=' + Date.now(), { cache: 'no-store' });
+        const state = await response.json();
+        const overlay = document.querySelector('#reid-overlay');
+        const image = document.querySelector('#overview-image');
+        if (!overlay || !image || !state.enabled || !image.clientWidth) return;
+        overlay.replaceChildren();
+        if (state.overlay_in_video) {
+          document.querySelector('#status').textContent = 'SOLIDER live · E… ? = unconfirmed · SOL-E… = associated';
+          return;
+        }
+        const scaleX = image.clientWidth / 1280;
+        const renderedHeight = image.clientWidth * 360 / 1280;
+        const letterboxTop = Math.max(0, (image.clientHeight - renderedHeight) / 2);
+        let confirmed = 0;
+        let provisional = 0;
+        let pending = 0;
+        for (const track of state.tracks || []) {
+          if (!track.bbox) continue;
+          const [left, top, width, height] = track.bbox;
+          const el = document.createElement('div');
+          const hasId = track.experimental_global_id !== null && track.experimental_global_id !== undefined;
+          const isConfirmed = Boolean(track.cross_camera_confirmed || track.identity_status === 'GLOBAL_CONFIRMED');
+          el.className = 'reid-label ' + (isConfirmed ? 'confirmed' : hasId ? 'pending' : 'unknown');
+          el.style.left = ((track.source_id * 640 + left * 0.5) * scaleX) + 'px';
+          el.style.top = (letterboxTop + (top * 0.5) * scaleX) + 'px';
+          el.style.width = Math.max(10, width * 0.5 * scaleX) + 'px';
+          el.style.height = Math.max(10, height * 0.5 * scaleX) + 'px';
+          let label;
+          if (isConfirmed) {
+            confirmed += 1;
+            label = 'SOL-E' + track.experimental_global_id;
+          } else if (hasId) {
+            provisional += 1;
+            label = 'PENDING-E' + track.experimental_global_id;
+          } else {
+            pending += 1;
+            label = 'L' + track.local_track_id + ' · UNKNOWN';
+          }
+          el.innerHTML = '<span>' + label + '</span>';
+          overlay.appendChild(el);
+        }
+        const stats = state.stats || {};
+        if (state.enabled) document.querySelector('#status').textContent =
+          'Live overview · visible: ' + (state.tracks || []).length +
+          ' · confirmed: ' + confirmed + ' · provisional: ' + provisional +
+          ' · unknown/pending: ' + pending +
+          ' · cross-camera matches: ' + (stats.cross_camera_match || 0);
+      } catch (error) {} finally {
+        setTimeout(refreshExperimentalReid, 250);
+      }
+    }
+
     renderDashboard();
     refresh();
+    refreshOverview();
+    refreshExperimentalReid();
   </script>
 </body>
 </html>

@@ -1,6 +1,5 @@
-"""Lightweight loopback HTTP bridge for six DeepStream camera MJPEG streams."""
+"""Low-latency loopback MJPEG dashboard for the DeepStream overview."""
 
-import json
 import os
 import socket
 import subprocess
@@ -11,7 +10,6 @@ from pathlib import Path
 from flask import Flask, Response, jsonify, render_template
 
 ROOT = Path(__file__).resolve().parents[1]
-DETECTION_FILE = ROOT / "runs/detection_live.json"
 TCP_HOST = "127.0.0.1"
 app = Flask(__name__, template_folder=str(Path(__file__).resolve().parent / "templates"))
 
@@ -63,6 +61,8 @@ class SystemMetrics:
 
 
 class StreamHub:
+    """Retains one completed GPU-encoded JPEG for all connected browsers."""
+
     def __init__(self, port):
         self.port = port
         self.lock = threading.Condition()
@@ -80,43 +80,37 @@ class StreamHub:
                     listener.settimeout(1)
                     while True:
                         try:
-                            sock, _ = listener.accept()
+                            client, _ = listener.accept()
                             break
                         except socket.timeout:
                             continue
-                    with sock:
-                        buffer = b""
+                    with client:
+                        pending = b""
                         while True:
-                            data = sock.recv(64 * 1024)
-                            if not data:
+                            chunk = client.recv(64 * 1024)
+                            if not chunk:
                                 break
-                            buffer += data
+                            pending += chunk
                             while True:
-                                start = buffer.find(b"\xff\xd8")
-                                end = buffer.find(b"\xff\xd9", start + 2)
+                                start = pending.find(b"\xff\xd8")
+                                end = pending.find(b"\xff\xd9", start + 2)
                                 if start < 0:
-                                    buffer = buffer[-2:]
+                                    pending = pending[-2:]
                                     break
                                 if end < 0:
-                                    buffer = buffer[start:]
+                                    pending = pending[start:]
                                     break
-                                frame = buffer[start:end + 2]
-                                buffer = buffer[end + 2:]
                                 with self.lock:
-                                    self.latest = frame
+                                    self.latest = pending[start:end + 2]
                                     self.sequence += 1
                                     self.lock.notify_all()
+                                pending = pending[end + 2:]
             except OSError:
                 time.sleep(0.5)
 
-    def subscribe(self):
-        with self.lock:
-            return self.sequence
 
-
-CAMERA_IDS = ("ground_01", "ground_02", "ground_03", "ground_04", "ground_05", "ground_06")
-CAMERA_HUBS = {camera_id: StreamHub(7001 + index) for index, camera_id in enumerate(CAMERA_IDS)}
 SYSTEM_METRICS = SystemMetrics()
+OVERVIEW_HUB = StreamHub(7007)
 
 
 @app.get("/")
@@ -125,57 +119,87 @@ def index():
     return render_template("index.html")
 
 
-def _mjpeg_response(hub):
-    initial_sequence = hub.subscribe()
+@app.get("/api/preview/metrics")
+def preview_metrics():
+    return jsonify(mode="latest-jpeg", overview_jpeg="/api/overview/frame")
+
+
+@app.get("/api/overview/frame")
+def overview_latest_frame():
+    """Return only the newest complete JPEG; never queue old frames."""
+    with OVERVIEW_HUB.lock:
+        image = OVERVIEW_HUB.latest
+        sequence = OVERVIEW_HUB.sequence
+    if not image:
+        return Response("No overview frame available", status=503)
+    return Response(
+        image,
+        mimetype="image/jpeg",
+        headers={
+            "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0",
+            "X-Overview-Sequence": str(sequence),
+        },
+    )
+
+
+@app.get("/stream/overview.jpg")
+def overview_stream_jpeg():
+    """One persistent MJPEG response; every yielded image is the newest one."""
+    with OVERVIEW_HUB.lock:
+        initial_sequence = OVERVIEW_HUB.sequence
 
     def chunks():
         sequence = initial_sequence
-        try:
-            while True:
-                with hub.lock:
-                    while hub.sequence <= sequence:
-                        hub.lock.wait(timeout=5)
-                    image = hub.latest
-                    sequence = hub.sequence
-                yield b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: " + str(len(image)).encode() + b"\r\n\r\n" + image + b"\r\n"
-        finally:
-            pass
+        while True:
+            with OVERVIEW_HUB.lock:
+                while OVERVIEW_HUB.sequence <= sequence:
+                    OVERVIEW_HUB.lock.wait(timeout=5)
+                image = OVERVIEW_HUB.latest
+                sequence = OVERVIEW_HUB.sequence
+            if image:
+                yield (b"--frame\r\nContent-Type: image/jpeg\r\nContent-Length: " +
+                       str(len(image)).encode() + b"\r\n\r\n" + image + b"\r\n")
 
-    return Response(chunks(), mimetype="multipart/x-mixed-replace; boundary=frame",
-                    headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"})
-
-
-@app.get("/stream/<camera_id>.jpg")
-def camera_stream_jpeg(camera_id):
-    hub = CAMERA_HUBS.get(camera_id)
-    if hub is None:
-        return jsonify(error="unknown camera"), 404
-    return _mjpeg_response(hub)
-
-
-def read_json(path):
-    try:
-        return jsonify(json.loads(path.read_text()))
-    except (OSError, ValueError):
-        return jsonify(error="metadata unavailable", stale=True), 503
-
-
-@app.get("/api/detection/live")
-def detection_live():
-    return read_json(DETECTION_FILE)
-
-
-@app.get("/api/preview/metrics")
-def preview_metrics():
-    return jsonify({
-        "mode": "native_camera_mjpeg",
-        "cameras": {camera_id: f"/stream/{camera_id}.jpg" for camera_id in CAMERA_IDS},
-    })
+    return Response(
+        chunks(),
+        mimetype="multipart/x-mixed-replace; boundary=frame",
+        headers={"Cache-Control": "no-store", "X-Accel-Buffering": "no"},
+    )
 
 
 @app.get("/api/system/metrics")
 def system_metrics():
     return jsonify(SYSTEM_METRICS.read())
+
+
+@app.get("/api/reid-experiment/latest")
+def reid_experiment_latest():
+    """Read-only browser overlay state from the isolated SOLIDER worker."""
+    state = ROOT / "runs/reid_experiment/live_state.json"
+    if not state.exists():
+        return jsonify(enabled=False, tracks=[], stats={})
+    try:
+        import json
+        document = json.loads(state.read_text(encoding="utf-8"))
+        document["enabled"] = True
+        return jsonify(document)
+    except (OSError, ValueError):
+        return jsonify(enabled=False, tracks=[], stats={})
+
+
+@app.get("/api/reid-experiment/journeys")
+def reid_experiment_journeys():
+    """Return the current Global-ID tracklet history for journey analytics."""
+    state = ROOT / "runs/reid_experiment/live_state.json"
+    if not state.exists():
+        return jsonify(enabled=False, journeys=[])
+    try:
+        import json
+        document = json.loads(state.read_text(encoding="utf-8"))
+        return jsonify(enabled=True, updated_at=document.get("updated_at"),
+                       journeys=document.get("journeys", []))
+    except (OSError, ValueError):
+        return jsonify(enabled=False, journeys=[])
 
 
 if __name__ == "__main__":

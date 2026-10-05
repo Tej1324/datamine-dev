@@ -1,0 +1,28 @@
+# Isolated CH10/CH11 MV3DT test detector.
+# Uses the repository's validated YOLO26 FP16 batch-1 engine so the test does
+# not depend on the configurator's unavailable PeopleNetTransformer assets.
+[property]
+gpu-id = 0
+net-scale-factor = 0.0039215697906911373
+model-color-format = 0
+onnx-file = ../models/yolo26s/yolo26s.onnx
+model-engine-file = ../models/yolo26s/yolo26s_b1_736x1280_l4_fp16.engine
+labelfile-path = ../models/yolo26s/labels.txt
+batch-size = 1
+network-mode = 2
+num-detected-classes = 80
+interval = 0
+gie-unique-id = 1
+process-mode = 1
+network-type = 0
+cluster-mode = 4
+maintain-aspect-ratio = 1
+symmetric-padding = 1
+parse-bbox-func-name = NvDsInferParseYolo
+custom-lib-path = ../models/yolo26s/DeepStream-Yolo/nvdsinfer_custom_impl_Yolo/libnvdsinfer_custom_impl_Yolo.so
+engine-create-func-name = NvDsInferYoloCudaEngineGet
+filter-out-class-ids = 1;2;3;4;5;6;7;8;9;10;11;12;13;14;15;16;17;18;19;20;21;22;23;24;25;26;27;28;29;30;31;32;33;34;35;36;37;38;39;40;41;42;43;44;45;46;47;48;49;50;51;52;53;54;55;56;57;58;59;60;61;62;63;64;65;66;67;68;69;70;71;72;73;74;75;76;77;78;79
+
+[class-attrs-all]
+pre-cluster-threshold = 0.45
+topk = 300

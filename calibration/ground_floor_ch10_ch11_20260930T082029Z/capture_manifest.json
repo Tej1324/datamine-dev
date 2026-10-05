@@ -1,0 +1,29 @@
+{
+  "project": "ground_floor_ch10_ch11_20260930T082029Z",
+  "started_at_utc": "2026-09-30T08:20:29.166226+00:00",
+  "camera_order": [
+    "cam_00",
+    "cam_01"
+  ],
+  "streams": [
+    {
+      "id": "cam_00",
+      "label": "CH10",
+      "channel": 10,
+      "nvr": 225,
+      "subtype": 0,
+      "video": "/home/ubuntu/datamine-cv/calibration/ground_floor_ch10_ch11_20260930T082029Z/inputs/videos/cam_00.mp4"
+    },
+    {
+      "id": "cam_01",
+      "label": "CH11",
+      "channel": 11,
+      "nvr": 225,
+      "subtype": 0,
+      "video": "/home/ubuntu/datamine-cv/calibration/ground_floor_ch10_ch11_20260930T082029Z/inputs/videos/cam_01.mp4"
+    }
+  ],
+  "encoding": "HEVC stream copy; no re-encoding",
+  "camera_positions": "new placement for triangular-geometry calibration",
+  "stopped_at_utc": "2026-09-30T08:22:39.185902+00:00"
+}

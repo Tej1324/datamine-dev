@@ -1,0 +1,22 @@
+# Persistent containerd state. The instance-local /opt/dlami/nvme volume is
+# intentionally not used because it can be recreated when the instance stops.
+disabled_plugins = ["cri"]
+root = "/var/lib/containerd-persistent"
+state = "/run/containerd"
+
+[proxy_plugins]
+  [proxy_plugins.soci]
+    type = "snapshot"
+    address = "/run/soci-snapshotter-grpc/soci-snapshotter-grpc.sock"
+    [proxy_plugins.soci.exports]
+      address = "/run/soci-snapshotter-grpc/soci-snapshotter-grpc.sock"
+      enable_remote_snapshot_annotations = "true"
+      root = "/var/lib/soci-snapshotter-grpc/"
+
+[[plugins."io.containerd.transfer.v1.local".unpack_config]]
+platform = "linux"
+snapshotter = "soci"
+
+[[plugins."io.containerd.transfer.v1.local".unpack_config]]
+platform = "linux"
+snapshotter = "overlayfs"

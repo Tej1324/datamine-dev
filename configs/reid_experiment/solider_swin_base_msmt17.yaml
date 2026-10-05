@@ -1,0 +1,32 @@
+# Isolated SOLIDER-REID A/B experiment. This file is not used by production.
+model:
+  name: swin_base_patch4_window7_224
+  checkpoint: models/reid_experiment/solider_swin_base_msmt17.pth
+  input_size: [384, 128]
+  embedding_dim: 1024
+  semantic_weight: 0.2
+  neck_feature: before
+  normalize_output: true
+  distance: cosine
+
+association:
+  extraction_interval_frames: 5
+  min_track_age_frames: 5
+  min_crop_width: 32
+  min_crop_height: 64
+  min_detector_confidence: 0.35
+  min_quality: 0.55
+  gallery_size: 12
+  similarity_threshold: 0.78
+  minimum_margin: 0.05
+  match_confirmations: 3
+  max_temporal_gap_seconds: 3.0
+  max_world_distance_meters: 2.0
+  max_pending_seconds: 5.0
+  camera_pairs: [[0, 1]]
+
+runtime:
+  enabled: false
+  only: true
+  input: /workspace/runs/reid_experiment_observations.jsonl
+  output: /workspace/runs/reid_experiment_results.jsonl

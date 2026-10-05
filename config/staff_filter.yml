@@ -1,9 +1,9 @@
-enabled: true
-# 90% of the mean staff score from the 20 manually labeled crops.
-staff_color_threshold: 0.615878
-profile_path: data/staff_filter/profile.yml
-upper_body:
-  x_min: 0.15
-  x_max: 0.85
-  y_min: 0.10
-  y_max: 0.65
+# Staff filtering uses the pooled staff-uniform color profile generated from
+# the labeled staff crops. It runs after NvDCF, so local track IDs remain in
+# the tracker while staff metadata is removed only from downstream display.
+color_profile_path: data/staff_filter/profile.yml
+# Conservative precision pass: the existing profile is broad and was
+# classifying too many customer crops as staff.  Keep the filter color-only;
+# raise the decision threshold until the profile is retrained with hard
+# staff/customer negatives.
+color_threshold: 0.700000

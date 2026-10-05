@@ -20,8 +20,20 @@ ldflags=(
 
 pkg_flags=( $(pkg-config --cflags --libs gstreamer-1.0 gstreamer-base-1.0) )
 
-g++ "${cxxflags[@]}" "${project_dir}/src/staff_filter/gst_staff_color_filter.cpp" \
-  -o "${output_dir}/libgststaffcolorfilter.so" \
-  "${pkg_flags[@]}" "${ldflags[@]}"
+g++ "${cxxflags[@]}" "${project_dir}/src/global_identity/gst_global_identity.cpp" \
+  -o "${output_dir}/libgstglobalidentity.so" \
+  "${pkg_flags[@]}" "${ldflags[@]}" -pthread
 
-echo "Built ${output_dir}/libgststaffcolorfilter.so"
+echo "Built ${output_dir}/libgstglobalidentity.so"
+
+g++ "${cxxflags[@]}" "${project_dir}/src/mv3dt_diagnostic/gst_mv3dt_diagnostic.cpp" \
+  -o "${output_dir}/libgstmv3dtdiagnostic.so" \
+  "${pkg_flags[@]}" "${ldflags[@]}" -pthread
+
+echo "Built ${output_dir}/libgstmv3dtdiagnostic.so"
+
+g++ "${cxxflags[@]}" "${project_dir}/src/mv3dt_world_identity/gst_mv3dt_world_identity.cpp" \
+  -o "${output_dir}/libgstmv3dtworldidentity.so" \
+  "${pkg_flags[@]}" "${ldflags[@]}" -pthread
+
+echo "Built ${output_dir}/libgstmv3dtworldidentity.so"

@@ -4,11 +4,12 @@ Six-camera NVIDIA DeepStream pipeline for channels 7, 16, 10, 18, 20, and 11.
 The runtime path is:
 
 ```text
-RTSP/NVDEC → YOLO26s FP16 → staff filter → NvDCF/Re-ID → per-camera OSD → GPU JPEG → viewer
+RTSP/NVDEC → YOLO26s FP16 → NvDCF/Re-ID → optional staff gate → GPU OSD → NVIDIA GPU JPEG → loopback MJPEG browser viewer
 ```
 
-Global Identity is intentionally not part of this project. The dashboard uses
-local tracker IDs only.
+Every YOLO person reaches NvDCF. Staff filtering is a post-tracker,
+positive-only NVIDIA Re-ID gallery decision, so uncertain people remain
+visible and local tracking is preserved.
 
 ## Prerequisites
 
@@ -28,21 +29,50 @@ docker build -f Dockerfile.deepstream -t datamine-deepstream:9.1-gpuviewer .
 bash start_ground_floor.sh
 ```
 
-The viewer is available at `http://127.0.0.1:8080/?v=mjpeg`. When using SSH,
-forward port 8080 to the local machine.
+The viewer is available at `http://127.0.0.1:8080/?v=mjpeg`. The dashboard
+uses one NVIDIA `nvimageenc` GPU JPEG overview and a lightweight loopback
+multipart-MJPEG relay. When using SSH, forward only the dashboard port:
 
-## Staff classifier dataset
+```bash
+ssh -N \
+  -L 18080:127.0.0.1:8080 \
+  datamine-l4
+```
 
-The current production filter remains the legacy color filter until a trained
-classifier is validated. Run the offline labeler on the host:
+Open `http://127.0.0.1:18080/?v=mjpeg`.
+
+## Staff enrollment
+
+Run the live enrollment exporter and UI together. The exporter is downstream
+of NvDCF and publishes tracked boxes plus full NVIDIA Re-ID embeddings. The UI
+shows one camera at a time from each six-camera capture; click every staff box,
+choose `NO STAFF` when appropriate, and continue. You never enter or remember
+local tracker IDs, and customers are never used as a training class.
+
+Terminal 1:
+
+```bash
+STAFF_ENROLLMENT_EXPORT_ENABLE=1 bash start_ground_floor.sh
+```
+
+Terminal 2:
 
 ```bash
 python3 tools/staff_filter_labeler.py
-python3 tools/prepare_staff_classifier_dataset.py
 ```
 
-The dataset validator requires both `staff` and `customer` examples from all
-six cameras. It keeps samples from one source frame in the same split.
+Open `http://127.0.0.1:8780`. Each saved positive selection automatically
+updates `data/staff_filter/reid_gallery.tsv`. Collect front, side, back, near,
+and distant views, then enable the pooled gallery gate:
+
+```bash
+STAFF_REID_FILTER_ENABLE=1 bash start_ground_floor.sh
+```
+
+The gate requires three high-quality matches within five sampled observations.
+Confirmed staff objects are removed only from downstream display/output
+metadata; NvDCF local tracking and Global ID remain intact. Uncertain people
+remain visible.
 
 ## Plugin build
 
@@ -53,4 +83,6 @@ DeepStream container with:
 bash scripts/build_plugins.sh
 ```
 
-The output is written to the ignored `build/` directory.
+The output is written to the ignored `build/` directory. A running process
+must be restarted to load a newly built shared library; building alone does
+not replace the library loaded by an existing process.
