@@ -1,88 +1,81 @@
-# Datamine DeepStream viewer
+# Datamine footfall runtime
 
-Six-camera NVIDIA DeepStream pipeline for channels 7, 16, 10, 18, 20, and 11.
-The runtime path is:
+Small NVIDIA DeepStream runtime for entrance footfall analytics:
 
 ```text
-RTSP/NVDEC → YOLO26s FP16 → NvDCF/Re-ID → optional staff gate → GPU OSD → NVIDIA GPU JPEG → loopback MJPEG browser viewer
+RTSP → NVDEC → YOLO person detector → NvDCF tracker → two-line counter → dashboard
 ```
 
-Every YOLO person reaches NvDCF. Staff filtering is a post-tracker,
-positive-only NVIDIA Re-ID gallery decision, so uncertain people remain
-visible and local tracking is preserved.
+The repository intentionally keeps only the YOLO/person-detection, NvDCF,
+footfall-counter, and dashboard path. TAO staff classification, SOLIDER/Re-ID,
+MV3DT/global IDs, calibration, crop review, and experiment code are not part of
+this runtime.
 
-## Prerequisites
+## Requirements
 
-- NVIDIA GPU and driver with Docker runtime support
-- Docker image `datamine-deepstream:9.1-gpuviewer`
-- DeepStream 9.1 runtime
-- YOLO engine/parser and NvDCF/Re-ID engine placed under `models/`
-- Runtime credentials copied from `.env.example` to an untracked `.env`
+- NVIDIA GPU and Docker with the NVIDIA runtime
+- DeepStream image `datamine-deepstream:9.1-gpuviewer`
+- YOLO/NvDCF assets under `models/` and the configs under `config/`
+- An untracked `.env` containing the RTSP values used by `config/cameras.yaml`:
+  `CAMERA_USERNAME`, `CAMERA_PASSWORD`, `NVR_225_HOST`, and `NVR_225_PORT`
 
-Never commit `.env`, camera credentials, model weights, TensorRT engines, or
-recorded video. These are ignored by design.
+`.env`, video, model-weight, TensorRT-engine, log, and runtime-state files are
+ignored by Git.
 
-## Build and run
+## Run
+
+Start the CH7 entrance pipeline and dashboard:
 
 ```bash
-docker build -f Dockerfile.deepstream -t datamine-deepstream:9.1-gpuviewer .
-bash start_ground_floor.sh
+bash scripts/start_footfall_ch7.sh
 ```
 
-The viewer is available at `http://127.0.0.1:8080/?v=mjpeg`. The dashboard
-uses one NVIDIA `nvimageenc` GPU JPEG overview and a lightweight loopback
-multipart-MJPEG relay. When using SSH, forward only the dashboard port:
+Open the dashboard at [http://127.0.0.1:18082](http://127.0.0.1:18082).
+
+For a remote machine, create the tunnel from your laptop:
 
 ```bash
-ssh -N \
-  -L 18080:127.0.0.1:8080 \
-  datamine-l4
+ssh -N -L 18082:127.0.0.1:18082 datamine-l4
 ```
 
-Open `http://127.0.0.1:18080/?v=mjpeg`.
+Then open the same local URL in the browser.
 
-## Staff enrollment
-
-Run the live enrollment exporter and UI together. The exporter is downstream
-of NvDCF and publishes tracked boxes plus full NVIDIA Re-ID embeddings. The UI
-shows one camera at a time from each six-camera capture; click every staff box,
-choose `NO STAFF` when appropriate, and continue. You never enter or remember
-local tracker IDs, and customers are never used as a training class.
-
-Terminal 1:
+Useful commands:
 
 ```bash
-STAFF_ENROLLMENT_EXPORT_ENABLE=1 bash start_ground_floor.sh
+docker logs -f footfall-ch7
+curl http://127.0.0.1:18082/api/state
+docker rm -f footfall-ch7
 ```
 
-Terminal 2:
+## Configure the entrance
+
+The dashboard uses two clicks for each line. Draw and save:
+
+- line 1 → line 2: entry
+- line 2 → line 1: exit
+
+The footpoint is the bottom-center of each person box. A crossing is counted
+only when the same NvDCF track crosses the two lines in order within the
+configured transition window. State is stored in `runs/footfall/` at runtime.
+
+The launcher defaults to camera `ground_01` and stream subtype `1`. Override
+these without editing code, for example:
 
 ```bash
-python3 tools/staff_filter_labeler.py
+FOOTFALL_CAMERA_IDS=ground_01 FOOTFALL_SUBTYPE=1 \
+  bash scripts/start_footfall_ch7.sh
 ```
 
-Open `http://127.0.0.1:8780`. Each saved positive selection automatically
-updates `data/staff_filter/reid_gallery.tsv`. Collect front, side, back, near,
-and distant views, then enable the pooled gallery gate:
+The dashboard supports one camera or a small camera set. For multiple cameras,
+the counter keeps source ID and NvDCF track ID separate.
 
-```bash
-STAFF_REID_FILTER_ENABLE=1 bash start_ground_floor.sh
-```
+## Runtime files
 
-The gate requires three high-quality matches within five sampled observations.
-Confirmed staff objects are removed only from downstream display/output
-metadata; NvDCF local tracking and Global ID remain intact. Uncertain people
-remain visible.
-
-## Plugin build
-
-The custom staff filter is a DeepStream GStreamer plugin. Build it inside the
-DeepStream container with:
-
-```bash
-bash scripts/build_plugins.sh
-```
-
-The output is written to the ignored `build/` directory. A running process
-must be restarted to load a newly built shared library; building alone does
-not replace the library loaded by an existing process.
+- `deepstream/detect.py` — DeepStream source, YOLO, NvDCF, OSD, and JPEG stream
+- `deepstream/footfall_counter.py` — two-line state machine and persistence
+- `tools/footfall_dashboard.py` — line editor, live MJPEG view, and API
+- `scripts/start_footfall_ch7.sh` — dashboard/container launcher
+- `config/cameras.yaml` — camera channel definitions
+- `config/detector_b6.txt` — YOLO detector configuration
+- `config/tracker.yml` — NvDCF tracker configuration
